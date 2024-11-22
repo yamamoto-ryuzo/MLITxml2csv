@@ -71,6 +71,14 @@ def parse_xml(xml_file_path):
         ','.join([safe_find_text(facility, '施設名称') for facility in facility_info])
     ]
 
+def find_xml_files(folder):
+    xml_files = []
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            if file.lower().endswith('.xml'):
+                xml_files.append(os.path.join(root, file))
+    return xml_files
+
 def process_xml_folder(input_folder, output_csv):
     headers = [
         '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
@@ -78,10 +86,10 @@ def process_xml_folder(input_folder, output_csv):
         '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称'
     ]
 
-    xml_files = [f for f in os.listdir(input_folder) if f.lower().endswith('.xml')]
+    xml_files = find_xml_files(input_folder)
     
     if not xml_files:
-        print(f"警告: フォルダ '{input_folder}' にXMLファイルが見つかりません。")
+        print(f"警告: フォルダ '{input_folder}' とそのサブフォルダにXMLファイルが見つかりません。")
         return
 
     processed_files = 0
@@ -89,22 +97,23 @@ def process_xml_folder(input_folder, output_csv):
         writer = csv.writer(csvfile)
         writer.writerow(headers)
 
-        for filename in xml_files:
-            xml_file_path = os.path.join(input_folder, filename)
+        for xml_file_path in xml_files:
             try:
                 data = parse_xml(xml_file_path)
                 if data:
                     writer.writerow(data)
                     processed_files += 1
-                    print(f"ファイル '{filename}' の処理が完了しました。")
+                    print(f"ファイル '{xml_file_path}' の処理が完了しました。")
             except Exception as e:
-                print(f"エラー: ファイル '{filename}' の処理中に問題が発生しました: {str(e)}")
+                print(f"エラー: ファイル '{xml_file_path}' の処理中に問題が発生しました: {str(e)}")
 
     print(f"全ての処理が完了しました。{processed_files}個のファイルが正常に処理され、'{output_csv}' に保存されました。")
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    # フォルダinputを実際に業務委託データを格納しているフォルダに変更して利用
     input_folder = os.path.join(current_dir, "input")
+    # 出力は常に、この階層
     output_csv = os.path.join(current_dir, "output.csv")
 
     if not os.path.isdir(input_folder):

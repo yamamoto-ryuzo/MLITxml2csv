@@ -1,4 +1,4 @@
 __pycache__
 .venv
-input/*.xml
-output.csv
+*.xml
+*.csv
