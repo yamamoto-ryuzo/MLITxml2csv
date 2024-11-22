@@ -62,7 +62,6 @@ def parse_xml(xml_file_path):
 
     avg_longitude, avg_latitude = calculate_average_coordinates(west, east, north, south)
 
-    #データ構造
     return [
         avg_longitude,
         avg_latitude,
@@ -80,44 +79,29 @@ def parse_xml(xml_file_path):
         ','.join([safe_find_text(facility, '施設名称') for facility in facility_info])
     ]
 
-def find_xml_files(folder):
-    xml_files = []
-    for root, dirs, files in os.walk(folder):
-        for file in files:
-            if file.lower().endswith('.xml'):
-                xml_files.append(os.path.join(root, file))
-    return xml_files
+def find_index_d_xml(folder):
+    for file in os.listdir(folder):
+        if file.lower() == 'index_d.xml':
+            return os.path.join(folder, file)
+    return None
 
-def process_xml_folder(input_folder, output_csv):
-    headers = [
-        '平均境界経度', '平均境界緯度',
-        '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
-        '西側境界座標経度', '東側境界座標経度', '北側境界座標緯度', '南側境界座標緯度',
-        '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称'
-    ]
-
-    xml_files = find_xml_files(input_folder)
+def process_index_d_xml(folder, writer):
+    index_d_path = find_index_d_xml(folder)
     
-    if not xml_files:
-        print(f"警告: フォルダ '{input_folder}' とそのサブフォルダにXMLファイルが見つかりません。")
-        return
+    if index_d_path:
+        try:
+            data = parse_xml(index_d_path)
+            if data:
+                writer.writerow(data)
+                print(f"ファイル '{os.path.basename(index_d_path)}' の処理が完了しました。")
+            else:
+                print(f"警告: '{os.path.basename(index_d_path)}' の処理中にエラーが発生しました。")
+        except Exception as e:
+            print(f"エラー: ファイル '{os.path.basename(index_d_path)}' の処理中に問題が発生しました: {str(e)}")
 
-    processed_files = 0
-    with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(headers)
-
-        for xml_file_path in xml_files:
-            try:
-                data = parse_xml(xml_file_path)
-                if data:
-                    writer.writerow(data)
-                    processed_files += 1
-                    print(f"ファイル '{xml_file_path}' の処理が完了しました。")
-            except Exception as e:
-                print(f"エラー: ファイル '{xml_file_path}' の処理中に問題が発生しました: {str(e)}")
-
-    print(f"全ての処理が完了しました。{processed_files}個のファイルが正常に処理され、'{output_csv}' に保存されました。")
+def process_folders(input_folder, writer):
+    for root, dirs, files in os.walk(input_folder):
+        process_index_d_xml(root, writer)
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -125,7 +109,19 @@ if __name__ == "__main__":
     output_csv = os.path.join(current_dir, "output.csv")
 
     if not os.path.isdir(input_folder):
-        print(f"エラー: 'input' フォルダが見つかりません。スクリプトと同じディレクトリに 'input' フォルダを作成し、XMLファイルを配置してください。")
+        print(f"エラー: 'input' フォルダが見つかりません。スクリプトと同じディレクトリに 'input' フォルダを作成し、index_D.xmlファイルを配置してください。")
         exit(1)
 
-    process_xml_folder(input_folder, output_csv)
+    headers = [
+        '平均境界経度', '平均境界緯度',
+        '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
+        '西側境界座標経度', '東側境界座標経度', '北側境界座標緯度', '南側境界座標緯度',
+        '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称'
+    ]
+
+    with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(headers)
+        process_folders(input_folder, writer)
+
+    print(f"処理が完了しました。結果は '{output_csv}' に保存されました。")
