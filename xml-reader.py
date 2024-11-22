@@ -3,36 +3,44 @@ import os
 from lxml import etree
 
 def safe_find_text(element, path, default=''):
-    found = element.find(path) if element is not None else None
-    return found.text if found is not None else default
+    if element is None:
+        return default
+    found = element.find(path)
+    return found.text if found is not None and found.text is not None else default
 
 def convert_coordinates(coord_str):
     if not coord_str or len(coord_str) < 5:
         return ''
-    if len(coord_str) == 6:  # 緯度の場合
-        degrees = int(coord_str[:2])
-        minutes = int(coord_str[3:4])
-        seconds = int(coord_str[5:6])
-    elif len(coord_str) == 7:  # 経度の場合
-        degrees = int(coord_str[:3])
-        minutes = int(coord_str[4:5])
-        seconds = int(coord_str[6:7])
-    else:
-        return coord_str  # 不正な形式の場合はそのまま返す
+    try:
+        if len(coord_str) == 6:  # 緯度の場合
+            degrees = int(coord_str[:2])
+            minutes = int(coord_str[2:4])
+            seconds = int(coord_str[4:6])
+        elif len(coord_str) == 7:  # 経度の場合
+            degrees = int(coord_str[:3])
+            minutes = int(coord_str[3:5])
+            seconds = int(coord_str[5:7])
+        else:
+            return coord_str  # 不正な形式の場合はそのまま返す
 
-    decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
-    return f"{decimal:.6f}"
+        decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
+        return f"{decimal:.6f}"
+    except ValueError:
+        return coord_str  # 数値変換に失敗した場合はそのまま返す
 
 def parse_xml(xml_file_path):
     try:
-        with open(xml_file_path, 'r', encoding='shift_jis') as file:
-            parser = etree.XMLParser(encoding='shift_jis')
-            root = etree.fromstring(file.read().encode('shift_jis'), parser=parser)
+        parser = etree.XMLParser(encoding='shift_jis')
+        tree = etree.parse(xml_file_path, parser=parser)
+        root = tree.getroot()
     except etree.XMLSyntaxError as e:
         print(f"警告: ファイル '{xml_file_path}' の解析中にXMLエラーが発生しました: {str(e)}")
         return None
     except UnicodeDecodeError:
         print(f"警告: ファイル '{xml_file_path}' のエンコーディングがShift-JISではない可能性があります。")
+        return None
+    except Exception as e:
+        print(f"警告: ファイル '{xml_file_path}' の読み込み中にエラーが発生しました: {str(e)}")
         return None
 
     basic_info = root.find('基礎情報')
@@ -59,7 +67,7 @@ def parse_xml(xml_file_path):
         safe_find_text(contractor_info, '受注者名'),
         safe_find_text(work_info, '業務概要'),
         safe_find_text(work_info, 'BIMCIM対象'),
-        ','.join([keyword.text for keyword in work_info.findall('業務キーワード')]) if work_info is not None else '',
+        ','.join([safe_find_text(keyword, '.') for keyword in work_info.findall('業務キーワード')]) if work_info is not None else '',
         ','.join([safe_find_text(facility, '施設名称') for facility in facility_info])
     ]
 
