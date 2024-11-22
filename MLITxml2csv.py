@@ -21,26 +21,28 @@ def convert_coordinates(coord_str):
             minutes = int(coord_str[3:5])
             seconds = int(coord_str[5:7])
         else:
-            return coord_str  # 不正な形式の場合はそのまま返す
+            return coord_str
 
         decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
         return f"{decimal:.6f}"
     except ValueError:
-        return coord_str  # 数値変換に失敗した場合はそのまま返す
+        return coord_str
+
+def calculate_average_coordinates(west, east, north, south):
+    try:
+        avg_longitude = (float(west) + float(east)) / 2
+        avg_latitude = (float(north) + float(south)) / 2
+        return f"{avg_longitude:.6f}", f"{avg_latitude:.6f}"
+    except ValueError:
+        return '', ''
 
 def parse_xml(xml_file_path):
     try:
         parser = etree.XMLParser(encoding='shift_jis')
         tree = etree.parse(xml_file_path, parser=parser)
         root = tree.getroot()
-    except etree.XMLSyntaxError as e:
-        print(f"警告: ファイル '{xml_file_path}' の解析中にXMLエラーが発生しました: {str(e)}")
-        return None
-    except UnicodeDecodeError:
-        print(f"警告: ファイル '{xml_file_path}' のエンコーディングがShift-JISではない可能性があります。")
-        return None
     except Exception as e:
-        print(f"警告: ファイル '{xml_file_path}' の読み込み中にエラーが発生しました: {str(e)}")
+        print(f"警告: ファイル '{xml_file_path}' の解析中にエラーが発生しました: {str(e)}")
         return None
 
     basic_info = root.find('基礎情報')
@@ -53,16 +55,23 @@ def parse_xml(xml_file_path):
 
     boundary_info = location_info.find('境界座標情報') if location_info is not None else None
 
+    west = convert_coordinates(safe_find_text(boundary_info, '西側境界座標経度'))
+    east = convert_coordinates(safe_find_text(boundary_info, '東側境界座標経度'))
+    north = convert_coordinates(safe_find_text(boundary_info, '北側境界座標緯度'))
+    south = convert_coordinates(safe_find_text(boundary_info, '南側境界座標緯度'))
+
+    avg_longitude, avg_latitude = calculate_average_coordinates(west, east, north, south)
+
+    #データ構造
     return [
+        avg_longitude,
+        avg_latitude,
         safe_find_text(basic_info, '適用要領基準'),
         safe_find_text(project_info, '業務名称'),
         safe_find_text(project_info, '履行期間-着手'),
         safe_find_text(project_info, '履行期間-完了'),
         safe_find_text(location_info, '測地系'),
-        convert_coordinates(safe_find_text(boundary_info, '西側境界座標経度')),
-        convert_coordinates(safe_find_text(boundary_info, '東側境界座標経度')),
-        convert_coordinates(safe_find_text(boundary_info, '北側境界座標緯度')),
-        convert_coordinates(safe_find_text(boundary_info, '南側境界座標緯度')),
+        west, east, north, south,
         safe_find_text(client_info, '発注者機関事務所名'),
         safe_find_text(contractor_info, '受注者名'),
         safe_find_text(work_info, '業務概要'),
@@ -81,6 +90,7 @@ def find_xml_files(folder):
 
 def process_xml_folder(input_folder, output_csv):
     headers = [
+        '平均境界経度', '平均境界緯度',
         '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
         '西側境界座標経度', '東側境界座標経度', '北側境界座標緯度', '南側境界座標緯度',
         '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称'
@@ -111,9 +121,7 @@ def process_xml_folder(input_folder, output_csv):
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # フォルダinputを実際に業務委託データを格納しているフォルダに変更して利用
     input_folder = os.path.join(current_dir, "input")
-    # 出力は常に、この階層
     output_csv = os.path.join(current_dir, "output.csv")
 
     if not os.path.isdir(input_folder):
