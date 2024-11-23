@@ -2,3 +2,6 @@ __pycache__
 .venv
 *.xml
 *.csv
+build
+input
+*.spec

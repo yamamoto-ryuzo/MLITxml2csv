@@ -16,7 +16,10 @@
 
 import csv
 import os
+import re
 from lxml import etree
+import tkinter as tk
+from tkinter import filedialog
 
 def safe_find_text(element, path, default=''):
     if element is None:
@@ -119,11 +122,42 @@ def process_folders(input_folder, writer):
     for root, dirs, files in os.walk(input_folder):
         process_index_d_xml(root, writer)
 
+import os
+import tkinter as tk
+from tkinter import filedialog
+
+def select_input_folder():
+    global input_folder
+    input_folder = filedialog.askdirectory(title="入力フォルダを選択してください")
+    folder_label.config(text=f"選択されたフォルダ: {input_folder}")
+
+def start_processing():
+    root.destroy()  # GUIを閉じる
+
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    input_folder = os.path.join(current_dir, "input")
-    output_csv = os.path.join(current_dir, "output.csv")
+    # GUIの設定
+    root = tk.Tk()
+    root.title("業務委託電子納品　概要書の集約")
+    root.geometry("400x200")
 
+    select_button = tk.Button(root, text="入力フォルダを選択", command=select_input_folder)
+    select_button.pack(pady=20)
+
+    folder_label = tk.Label(root, text="フォルダが選択されていません", wraplength=380)
+    folder_label.pack(pady=10)
+
+    start_button = tk.Button(root, text="INDEX_D.XMLをMLITxml.csvに集約", command=start_processing)
+    start_button.pack(pady=20)
+
+    root.mainloop()
+
+    # GUIが閉じられた後の処理
+    output_csv = os.path.join(current_dir, "MLITxml.csv")
+    
+    print(f"選択された入力フォルダ: {input_folder}")
+    print(f"出力CSVファイル: {output_csv}")
+    
     if not os.path.isdir(input_folder):
         print(f"エラー: 'input' フォルダが見つかりません。スクリプトと同じディレクトリに 'input' フォルダを作成し、index_D.xmlファイルを配置してください。")
         exit(1)
@@ -141,3 +175,4 @@ if __name__ == "__main__":
         process_folders(input_folder, writer)
 
     print(f"処理が完了しました。結果は '{output_csv}' に保存されました。")
+
