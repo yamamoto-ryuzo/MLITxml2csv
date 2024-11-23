@@ -20,6 +20,7 @@ import re
 from lxml import etree
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import messagebox
 
 def safe_find_text(element, path, default=''):
     if element is None:
@@ -135,7 +136,8 @@ def start_processing():
     root.destroy()  # GUIを閉じる
 
 if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = os.getcwd()
+    
     # GUIの設定
     root = tk.Tk()
     root.title("業務委託電子納品　概要書の集約")
@@ -175,4 +177,9 @@ if __name__ == "__main__":
         process_folders(input_folder, writer)
 
     print(f"処理が完了しました。結果は '{output_csv}' に保存されました。")
+    
+    root = tk.Tk()
+    root.withdraw()  # メインウィンドウを非表示にする
+    messagebox.showerror("報告", f"結果は '{output_csv}' に保存されました。")
+    root.destroy()  # Tkinterのインスタンスを破棄
 
