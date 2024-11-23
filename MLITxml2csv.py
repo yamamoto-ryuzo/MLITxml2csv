@@ -1,3 +1,19 @@
+# -*- coding: utf-8 -*-
+
+# インストール
+# python本体
+# https://www.python.org/downloads/
+# インストール時【Add python.exe to PATH】にチェックを入れる
+# pip install pyinstaller
+# アップデートがあるとき
+# python.exe -m pip install --upgrade pip
+
+# EXE作成
+#　ディレクトリは適宜変更
+# cd C:\github\MLITxml2csv
+# pyinstaller MLITxml2csv.py --onefile --noconsole --distpath ./ --clean
+#　完成したら　-----.exeとかメッセージが出て完成
+
 import csv
 import os
 from lxml import etree
