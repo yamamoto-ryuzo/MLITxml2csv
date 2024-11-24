@@ -120,7 +120,7 @@ def find_index_d_xml(folder):
             return os.path.join(folder, file)
     return None
 
-def process_index_d_xml(folder, writer):
+def process_index_d_xml(folder, writer, report_csvwriter):
     index_d_path = find_index_d_xml(folder)
     
     if index_d_path:
@@ -131,12 +131,17 @@ def process_index_d_xml(folder, writer):
                 print(f"ファイル '{os.path.basename(index_d_path)}' の処理が完了しました。")
             else:
                 print(f"警告: '{os.path.basename(index_d_path)}' の処理中にエラーが発生しました。")
+            
+            # report.XML　の取得
+            #  data = parse_xml(index_d_path)の返り値 4列目が業務名　
+            process_xml_to_csv(folder, data[3],report_csvwriter)
+            
         except Exception as e:
             print(f"エラー: ファイル '{os.path.basename(index_d_path)}' の処理中に問題が発生しました: {str(e)}")
 
-def process_folders(input_folder, writer):
+def process_folders(input_folder, writer,report_csvwriter):
     for root, dirs, files in os.walk(input_folder):
-        process_index_d_xml(root, writer)
+        process_index_d_xml(root, writer,report_csvwriter)
 
 import os
 import tkinter as tk
@@ -187,6 +192,37 @@ def csv_to_geopackage(csv_file, output_gpkg, lon_col='平均境界経度', lat_c
 # ===========================
 # === report.XMLの読み込み ===
 # ===========================
+def open_csv_file(csv_file_path):
+    csvfile = open(csv_file_path, 'w', newline='', encoding='utf-8')
+    csvwriter = csv.writer(csvfile)
+    csvwriter.writerow(['業務名', '報告書名', '報告書副題', '報告書ファイル名', '報告書ファイル日本語名', '情報取得ファイル'])
+    return csvfile, csvwriter
+
+def close_csv_file(csvfile):
+    csvfile.close()
+
+def process_xml_to_csv(folder, project_name, csvwriter):
+    report_xml_file_path = os.path.join(folder, 'report', 'report.xml')
+    print(f'report_XMLを確定: {report_xml_file_path}')
+    
+    if not os.path.exists(report_xml_file_path):
+        print(f'XMLファイルが見つかりません: {report_xml_file_path}')
+        return
+    
+    # XMLファイルを解析
+    parser = etree.XMLParser(encoding='shift_jis')
+    report_tree = etree.parse(report_xml_file_path, parser=parser)
+    report_root = report_tree.getroot()
+
+    # XMLから必要なデータを抽出してCSVに書き込む
+    for element in report_root.findall('.//報告書ファイル情報'):
+        report_name = element.findtext('報告書名', default='')
+        report_subtitle = element.findtext('報告書副題', default='')
+        report_filename = element.findtext('報告書ファイル名', default='')
+        report_japanese_filename = element.findtext('報告書ファイル日本語名', default='')
+        csvwriter.writerow([project_name, report_name, report_subtitle, report_filename, report_japanese_filename, report_xml_file_path])
+
+
 def report_xml_to_csv(report_file_path,project_name):
     report_folder_path = os.path.dirname(report_file_path)
     report_xml_file_path = os.path.join(report_folder_path, 'report', 'report.xml')
@@ -212,11 +248,11 @@ def report_xml_to_csv(report_file_path,project_name):
         
         # XMLから必要なデータを抽出してCSVに書き込む
         for element in report_root.findall('.//報告書ファイル情報'):
-            attr1 = element.findtext('報告書名', default='')
-            attr11 = element.findtext('報告書副題', default='')
-            attr2 = element.findtext('報告書ファイル名', default='')
-            attr3 = element.findtext('報告書ファイル日本語名', default='')
-            csvwriter.writerow([project_name,attr1, attr11, attr2, attr3,report_xml_file_path])
+            report_name = element.findtext('報告書名', default='')
+            report_subtitle = element.findtext('報告書副題', default='')
+            report_filename = element.findtext('報告書ファイル名', default='')
+            report_japanese_filename = element.findtext('報告書ファイル日本語名', default='')
+            csvwriter.writerow([report_name, report_subtitle, report_filename, report_japanese_filename,report_xml_file_path])
     print(f"reportファイルを保存しました: {report_csv_file_path}")
 
             
@@ -225,8 +261,9 @@ def report_xml_to_csv(report_file_path,project_name):
 # ===========================       
 if __name__ == "__main__":
     current_dir = os.getcwd()
-    
+    # ＝＝＝＝＝＝＝＝＝＝＝
     # ＝＝＝GUIの設定＝＝＝
+    # ＝＝＝＝＝＝＝＝＝＝＝
     root = tk.Tk()
     root.title("業務委託電子納品　概要書の集約")
     root.geometry("400x200")
@@ -237,13 +274,16 @@ if __name__ == "__main__":
     folder_label = tk.Label(root, text="フォルダが選択されていません", wraplength=380)
     folder_label.pack(pady=10)
 
-    start_button = tk.Button(root, text="INDEX_D.XMLをMLITxml.csvに集約", command=start_processing)
+    start_button = tk.Button(root, text="INDEX_D.XMLをMLITxml.csvに集約\n\nREPORT.XMLをMLITreportxml.csvに集約", command=start_processing)
     start_button.pack(pady=20)
 
     root.mainloop()
 
-    # ＝＝＝GUIが閉じられた後の処理＝＝＝
-    # CSVファイルの作成
+    # ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+    # ＝＝＝ GUIが閉じられた後の処理 ＝＝＝
+    # ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+    
+    # ＝＝＝ index_D.XMLを変換したCSVファイルの作成 ＝＝＝
     output_csv = os.path.join(current_dir, "MLITxml.csv")
     
     print(f"選択された入力フォルダ: {input_folder}")
@@ -253,7 +293,7 @@ if __name__ == "__main__":
         print(f"エラー: 'input' フォルダが見つかりません。スクリプトと同じディレクトリに 'input' フォルダを作成し、index_D.xmlファイルを配置してください。")
         exit(1)
 
-    # 属性情報
+    # index_D.XMLを変換したCSVファイル属性情報
     headers = [
         '平均境界経度', '平均境界緯度',
         '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
@@ -261,20 +301,28 @@ if __name__ == "__main__":
         '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称' , '情報取得ファイル'
     ]
 
+    # report.XMLを変換したCSVファイルの保存先を作成
+    report_csv_file_path = os.path.join(current_dir, "MLITreportxml.csv")
+    report_csvfile, report_csvwriter = open_csv_file(report_csv_file_path)
+
+    # index_D.XMLを変換したCSVファイルの書き込み
     with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(headers)
-        process_folders(input_folder, writer)
+        process_folders(input_folder, writer, report_csvwriter)
+         
+    # report.XMLを変換したCSVファイルの保存先を保存
+    close_csv_file(report_csvfile)
 
-    # ジオパッケージの作成
+    # === ジオパッケージの作成 ===
     input_csv = output_csv
     output_gpkg = os.path.join(current_dir, "MLITxml.gpkg")
     csv_to_geopackage(input_csv, output_gpkg)
 
-    print(f"処理が完了しました。結果は '{output_csv}' 等に保存されました。")
+    print(f"処理が完了しました。結果は\n '{output_csv}' \n '{report_csv_file_path}' \nに保存されました。")
     
     root = tk.Tk()
     root.withdraw()  # メインウィンドウを非表示にする
-    messagebox.showerror("報告", f"結果は '{output_csv}' に保存されました。")
+    messagebox.showerror("報告", f"結果は\n '{output_csv}' \n '{report_csv_file_path}' \nに保存されました。")
     root.destroy()  # Tkinterのインスタンスを破棄
 
