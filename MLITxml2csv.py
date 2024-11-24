@@ -90,6 +90,7 @@ def parse_xml(xml_file_path):
 
     avg_longitude, avg_latitude = calculate_average_coordinates(west, east, north, south)
 
+    # 属性の保存
     return [
         avg_longitude,
         avg_latitude,
@@ -104,7 +105,8 @@ def parse_xml(xml_file_path):
         safe_find_text(work_info, '業務概要'),
         safe_find_text(work_info, 'BIMCIM対象'),
         ','.join([safe_find_text(keyword, '.') for keyword in work_info.findall('業務キーワード')]) if work_info is not None else '',
-        ','.join([safe_find_text(facility, '施設名称') for facility in facility_info])
+        ','.join([safe_find_text(facility, '施設名称') for facility in facility_info]),
+        xml_file_path
     ]
 
 def find_index_d_xml(folder):
@@ -142,7 +144,10 @@ def select_input_folder():
 
 def start_processing():
     root.destroy()  # GUIを閉じる
-
+    
+# ==========================
+# === ジオパッケージの作成 ===
+# ==========================
 def csv_to_geopackage(csv_file, output_gpkg, lon_col='平均境界経度', lat_col='平均境界緯度', crs="EPSG:4326"):
     """
     CSVファイルをジオパッケージに変換する関数
@@ -173,7 +178,10 @@ def csv_to_geopackage(csv_file, output_gpkg, lon_col='平均境界経度', lat_c
         print(f"ジオパッケージが作成されました: {output_gpkg}")
     except Exception as e:
         print(f"エラーが発生しました: {str(e)}")
-        
+ 
+# ===========================
+# ====== プログラム本体 ======
+# ===========================       
 if __name__ == "__main__":
     current_dir = os.getcwd()
     
@@ -204,11 +212,12 @@ if __name__ == "__main__":
         print(f"エラー: 'input' フォルダが見つかりません。スクリプトと同じディレクトリに 'input' フォルダを作成し、index_D.xmlファイルを配置してください。")
         exit(1)
 
+    # 属性情報
     headers = [
         '平均境界経度', '平均境界緯度',
         '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
         '西側境界座標経度', '東側境界座標経度', '北側境界座標緯度', '南側境界座標緯度',
-        '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称'
+        '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称' , '情報取得ファイル'
     ]
 
     with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
