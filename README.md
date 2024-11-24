@@ -1,6 +1,6 @@
 # 電子納品のindex_D.XML/report.XMLを一括してGISで読み込めるCSV・GPKGに変換
 #### MLITxml2csv.exe　があれば動きます！  
-平均境界経度,平均境界緯度　を作っているでこちらを　GIS　で読んでください。  
+GPKGを利用するか、CSVの平均境界経度,平均境界緯度　を作っているでこちらを　GIS　で読んでください。  
 EPSG:4326    
 MLITreportxml.csvは"業務名"をキーにリレーションを作成してください。  
 ## 概要
