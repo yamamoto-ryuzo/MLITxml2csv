@@ -24,6 +24,8 @@ from tkinter import messagebox
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
+import xml.etree.ElementTree as ET
+import codecs
 
 def safe_find_text(element, path, default=''):
     if element is None:
@@ -89,6 +91,9 @@ def parse_xml(xml_file_path):
     south = convert_coordinates(safe_find_text(boundary_info, '南側境界座標緯度'))
 
     avg_longitude, avg_latitude = calculate_average_coordinates(west, east, north, south)
+
+    # report_XMLの変換
+    report_xml_to_csv(xml_file_path,safe_find_text(project_info, '業務名称'))
 
     # 属性の保存
     return [
@@ -178,7 +183,43 @@ def csv_to_geopackage(csv_file, output_gpkg, lon_col='平均境界経度', lat_c
         print(f"ジオパッケージが作成されました: {output_gpkg}")
     except Exception as e:
         print(f"エラーが発生しました: {str(e)}")
- 
+
+# ===========================
+# === report.XMLの読み込み ===
+# ===========================
+def report_xml_to_csv(report_file_path,project_name):
+    report_folder_path = os.path.dirname(report_file_path)
+    report_xml_file_path = os.path.join(report_folder_path, 'report', 'report.xml')
+    print(f'report_XMLを確定: {report_xml_file_path}')
+    
+    if not os.path.exists(report_xml_file_path):
+        print(f'XMLファイルが見つかりません: {report_xml_file_path}')
+        return
+    
+    report_csv_file_path = os.path.splitext(report_xml_file_path)[0] + '.csv'
+    
+    # XMLファイルを解析
+    parser = etree.XMLParser(encoding='shift_jis')
+    report_tree = etree.parse(report_xml_file_path,parser=parser)
+    report_root = report_tree.getroot()
+
+    # CSVファイルを開く
+    with open(report_csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        
+        # ヘッダーを書き込む（必要に応じて）
+        csvwriter.writerow(['業務名','報告書名','報告書副題', '報告書ファイル名', '報告書ファイル日本語名','情報取得ファイル'])
+        
+        # XMLから必要なデータを抽出してCSVに書き込む
+        for element in report_root.findall('.//報告書ファイル情報'):
+            attr1 = element.findtext('報告書名', default='')
+            attr11 = element.findtext('報告書副題', default='')
+            attr2 = element.findtext('報告書ファイル名', default='')
+            attr3 = element.findtext('報告書ファイル日本語名', default='')
+            csvwriter.writerow([project_name,attr1, attr11, attr2, attr3,report_xml_file_path])
+    print(f"reportファイルを保存しました: {report_csv_file_path}")
+
+            
 # ===========================
 # ====== プログラム本体 ======
 # ===========================       
