@@ -21,6 +21,9 @@ from lxml import etree
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
 
 def safe_find_text(element, path, default=''):
     if element is None:
@@ -52,6 +55,7 @@ def calculate_average_coordinates(west, east, north, south):
     try:
         avg_longitude = (float(west) + float(east)) / 2
         avg_latitude = (float(north) + float(south)) / 2
+        # エラーは皇居に設定
         if avg_longitude > 180:
             avg_longitude = 139.7528144  
         if avg_latitude > 180:
@@ -139,10 +143,41 @@ def select_input_folder():
 def start_processing():
     root.destroy()  # GUIを閉じる
 
+def csv_to_geopackage(csv_file, output_gpkg, lon_col='平均境界経度', lat_col='平均境界緯度', crs="EPSG:4326"):
+    """
+    CSVファイルをジオパッケージに変換する関数
+
+    Parameters:
+    csv_file (str): 入力CSVファイルのパス
+    output_gpkg (str): 出力ジオパッケージファイルのパス
+    lon_col (str): 経度のカラム名（デフォルト: '平均境界経度'）
+    lat_col (str): 緯度のカラム名（デフォルト: '平均境界緯度'）
+    crs (str): 座標参照系（デフォルト: "EPSG:4326"）
+
+    Returns:
+    None
+    """
+    try:
+        # CSVファイルを読み込む
+        df = pd.read_csv(csv_file)
+
+        # Pointジオメトリを作成
+        geometry = [Point(xy) for xy in zip(df[lon_col], df[lat_col])]
+
+        # GeoDataFrameを作成
+        gdf = gpd.GeoDataFrame(df, geometry=geometry, crs=crs)
+
+        # ジオパッケージとして保存
+        gdf.to_file(output_gpkg, driver="GPKG")
+
+        print(f"ジオパッケージが作成されました: {output_gpkg}")
+    except Exception as e:
+        print(f"エラーが発生しました: {str(e)}")
+        
 if __name__ == "__main__":
     current_dir = os.getcwd()
     
-    # GUIの設定
+    # ＝＝＝GUIの設定＝＝＝
     root = tk.Tk()
     root.title("業務委託電子納品　概要書の集約")
     root.geometry("400x200")
@@ -158,7 +193,8 @@ if __name__ == "__main__":
 
     root.mainloop()
 
-    # GUIが閉じられた後の処理
+    # ＝＝＝GUIが閉じられた後の処理＝＝＝
+    # CSVファイルの作成
     output_csv = os.path.join(current_dir, "MLITxml.csv")
     
     print(f"選択された入力フォルダ: {input_folder}")
@@ -180,7 +216,12 @@ if __name__ == "__main__":
         writer.writerow(headers)
         process_folders(input_folder, writer)
 
-    print(f"処理が完了しました。結果は '{output_csv}' に保存されました。")
+    # ジオパッケージの作成
+    input_csv = output_csv
+    output_gpkg = os.path.join(current_dir, "MLITxml.gpkg")
+    csv_to_geopackage(input_csv, output_gpkg)
+
+    print(f"処理が完了しました。結果は '{output_csv}' 等に保存されました。")
     
     root = tk.Tk()
     root.withdraw()  # メインウィンドウを非表示にする
