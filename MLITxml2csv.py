@@ -52,6 +52,10 @@ def calculate_average_coordinates(west, east, north, south):
     try:
         avg_longitude = (float(west) + float(east)) / 2
         avg_latitude = (float(north) + float(south)) / 2
+        if avg_longitude > 180:
+            avg_longitude = 139.7528144  
+        if avg_latitude > 180:
+            avg_latitude = 35.6852211
         return f"{avg_longitude:.6f}", f"{avg_latitude:.6f}"
     except ValueError:
         return '', ''
