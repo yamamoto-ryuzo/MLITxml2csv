@@ -17,3 +17,8 @@ AIに読み込ませることで業務の概要を詳しく作成可能です。
 ## ディレクトリ処理
 指定したディレクトリ内の全XMLファイルを一括処理
 このツールを使用することで、電子納品データの管理とGISでの活用が大幅に効率化され、土木・建設プロジェクトの生産性向上に貢献します。
+
+## 免責事項
+このガイドは私のパソコンで作成され、テストされたものです。どんな災難にも責任は負いません！  
+<p align="center"> <a href="https://giphy.com/explore/free-gif" target="_blank"><img src="./imgs/giphy.gif" width="500" title="avvio QGIS"></a>
+</p>
