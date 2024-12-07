@@ -1,9 +1,9 @@
 # VECTORファイル掲載基準  
 ## ソフトの概要  
-　XML2CSVは、国土交通省の電子納品規格に準拠したINDEX_D.XML/REPORT.XMLファイルから必要な情報を抽出し、GISで利用しやすいCSV形式に変換するツールです。複数の委託業務フォルダを一括処理することができ、土木・建設プロジェクトのデータ管理効率化に貢献します。  
+　初めての人でも扱いやすいポータブルQGIS環境の構築
 ## 作者への連絡先(メールアドレス、掲示板 等)  
 　メールアドレス：ryu@yamakun.net  
-　ｇｉｔｈｕｂ：https://github.com/yamamoto-ryuzo/MLITxml2csv  
+　ｇｉｔｈｕｂ： https://github.com/yamamoto-ryuzo/yr-qgis-launcher   
 ## 取り扱い種別(フリーソフト、シェアウェア 等)  
 　フリーソフト（寄付歓迎！）。  
 ## 動作環境  
