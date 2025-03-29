@@ -1,8 +1,11 @@
 __pycache__
 .venv
 *.xml
+*.xlsx
 *.csv
 *.gpkg
 build
 input
 *.spec
+*.exe
+MLITxml2csv.exe

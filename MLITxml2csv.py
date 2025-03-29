@@ -8,6 +8,9 @@
 # アップデートがあるとき
 # python.exe -m pip install --upgrade pip
 
+# 必要なライブラリのインストール
+# pip install openpyxl
+
 # EXE作成
 #　ディレクトリは適宜変更
 # cd C:\github\MLITxml2csv
@@ -26,6 +29,7 @@ import geopandas as gpd
 from shapely.geometry import Point
 import xml.etree.ElementTree as ET
 import codecs
+import shutil  # ファイル複写のためにshutilをインポート
 
 def safe_find_text(element, path, default=''):
     if element is None:
@@ -120,6 +124,23 @@ def find_index_d_xml(folder):
             return os.path.join(folder, file)
     return None
 
+def extract_headers_from_xml(xml_file_path):
+    """
+    XMLファイルから動的にヘッダーを抽出する関数
+    """
+    try:
+        parser = etree.XMLParser(encoding='shift_jis')
+        tree = etree.parse(xml_file_path, parser=parser)
+        root = tree.getroot()
+
+        headers = set()
+        for element in root.iter():
+            headers.add(element.tag)
+        return list(headers)
+    except Exception as e:
+        print(f"エラー: ヘッダー抽出中に問題が発生しました: {str(e)}")
+        return []
+
 def process_index_d_xml(folder, writer, report_csvwriter):
     index_d_path = find_index_d_xml(folder)
     
@@ -133,8 +154,7 @@ def process_index_d_xml(folder, writer, report_csvwriter):
                 print(f"警告: '{os.path.basename(index_d_path)}' の処理中にエラーが発生しました。")
             
             # report.XML　の取得
-            #  data = parse_xml(index_d_path)の返り値 4列目が業務名　
-            process_xml_to_csv(folder, data[3],report_csvwriter)
+            process_xml_to_csv(folder, data[3], report_csvwriter)
             
         except Exception as e:
             print(f"エラー: ファイル '{os.path.basename(index_d_path)}' の処理中に問題が発生しました: {str(e)}")
@@ -192,14 +212,51 @@ def csv_to_geopackage(csv_file, output_gpkg, lon_col='平均境界経度', lat_c
 # ===========================
 # === report.XMLの読み込み ===
 # ===========================
-def open_csv_file(csv_file_path):
+def open_csv_file(csv_file_path, headers):
+    """
+    CSVファイルを開き、指定されたヘッダーを書き込む関数
+
+    Parameters:
+    csv_file_path (str): CSVファイルのパス
+    headers (list): ヘッダーのリスト
+
+    Returns:
+    tuple: (ファイルオブジェクト, CSVライターオブジェクト)
+    """
     csvfile = open(csv_file_path, 'w', newline='', encoding='utf-8')
     csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(['業務名', '報告書名', '報告書副題', '報告書ファイル名', '報告書ファイル日本語名', '情報取得ファイル'])
+    csvwriter.writerow(headers)  # 動的にヘッダーを書き込む
     return csvfile, csvwriter
 
 def close_csv_file(csvfile):
     csvfile.close()
+
+def copy_and_rename_report_pdf(folder, report_filename, report_japanese_filename):
+    """
+    報告書ファイル名に日本語名を追加して複写する関数
+
+    Parameters:
+    folder (str): 報告書ファイルが存在するフォルダ
+    report_filename (str): 元の報告書ファイル名
+    report_japanese_filename (str): 日本語名
+    """
+    original_file_path = os.path.join(folder, 'report', report_filename)
+    if not os.path.exists(original_file_path):
+        print(f"元のファイルが見つかりません: {original_file_path}")
+        return
+
+    # 日本語名から余分な "PDF" を削除
+    report_japanese_filename = re.sub(r'\.?pdf$', '', report_japanese_filename, flags=re.IGNORECASE)
+
+    # 元のファイル名から拡張子を取得し、新しいファイル名を作成
+    base_name, ext = os.path.splitext(report_filename)
+    ext = ".pdf"  # 拡張子を常に小文字の .pdf に統一
+    new_file_name = f"{base_name}_{report_japanese_filename}{ext}"
+    new_file_path = os.path.join(folder, 'report', new_file_name)
+
+    # ファイルを複写
+    shutil.copy(original_file_path, new_file_path)
+    print(f"ファイルを複写しました: {new_file_path}")
 
 def process_xml_to_csv(folder, project_name, csvwriter):
     report_xml_file_path = os.path.join(folder, 'report', 'report.xml')
@@ -220,10 +277,12 @@ def process_xml_to_csv(folder, project_name, csvwriter):
         report_subtitle = element.findtext('報告書副題', default='')
         report_filename = element.findtext('報告書ファイル名', default='')
         report_japanese_filename = element.findtext('報告書ファイル日本語名', default='')
-        csvwriter.writerow([project_name, report_name, report_subtitle, report_filename, report_japanese_filename, report_xml_file_path])
+        csvwriter.writerow([project_name, report_name, report_subtitle, report_filename, report_japanese_filename, os.path.join(folder, 'report')])
 
+        # 報告書ファイルを複写して名前を変更
+        copy_and_rename_report_pdf(folder, report_filename, report_japanese_filename)
 
-def report_xml_to_csv(report_file_path,project_name):
+def report_xml_to_csv(report_file_path, project_name):
     report_folder_path = os.path.dirname(report_file_path)
     report_xml_file_path = os.path.join(report_folder_path, 'report', 'report.xml')
     print(f'report_XMLを確定: {report_xml_file_path}')
@@ -233,28 +292,71 @@ def report_xml_to_csv(report_file_path,project_name):
         return
     
     report_csv_file_path = os.path.splitext(report_xml_file_path)[0] + '.csv'
+    report_excel_file_path = os.path.splitext(report_xml_file_path)[0] + '.xlsx'  # エクセルファイルのパスを追加
     
     # XMLファイルを解析
     parser = etree.XMLParser(encoding='shift_jis')
-    report_tree = etree.parse(report_xml_file_path,parser=parser)
+    report_tree = etree.parse(report_xml_file_path, parser=parser)
     report_root = report_tree.getroot()
+
+    # 動的にヘッダーを取得
+    headers = set()
+    for element in report_root.findall('.//報告書ファイル情報'):
+        for child in element:
+            headers.add(child.tag)
+    headers = ['業務名'] + list(headers) + ['情報取得ファイル']  # 業務名と情報取得ファイルを追加
 
     # CSVファイルを開く
     with open(report_csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
         csvwriter = csv.writer(csvfile)
         
-        # ヘッダーを書き込む（必要に応じて）
-        csvwriter.writerow(['業務名','報告書名','報告書副題', '報告書ファイル名', '報告書ファイル日本語名','情報取得ファイル'])
+        # 動的に取得したヘッダーを書き込む
+        csvwriter.writerow(headers)
         
         # XMLから必要なデータを抽出してCSVに書き込む
         for element in report_root.findall('.//報告書ファイル情報'):
-            report_name = element.findtext('報告書名', default='')
-            report_subtitle = element.findtext('報告書副題', default='')
-            report_filename = element.findtext('報告書ファイル名', default='')
-            report_japanese_filename = element.findtext('報告書ファイル日本語名', default='')
-            csvwriter.writerow([report_name, report_subtitle, report_filename, report_japanese_filename,report_xml_file_path])
+            row = [project_name]  # 業務名を先頭に追加
+            for header in headers[1:-1]:  # 業務名と情報取得ファイルを除いたヘッダー
+                row.append(element.findtext(header, default=''))
+            row.append(os.path.join(report_folder_path, 'report'))  # 情報取得ファイルを追加
+            csvwriter.writerow(row)
+    
+    # CSVからエクセルファイルを作成
+    csv_to_excel(report_csv_file_path, report_excel_file_path)
     print(f"reportファイルを保存しました: {report_csv_file_path}")
+    print(f"reportエクセルファイルを保存しました: {report_excel_file_path}")
 
+def csv_to_excel(csv_file, excel_file, hyperlink_column=None):
+    """
+    CSVファイルをエクセルファイルに変換し、指定された列をハイパーリンクにする関数
+
+    Parameters:
+    csv_file (str): 入力CSVファイルのパス
+    excel_file (str): 出力エクセルファイルのパス
+    hyperlink_column (str): ハイパーリンクにする列名
+
+    Returns:
+    None
+    """
+    try:
+        df = pd.read_csv(csv_file)
+
+        # エクセルライターを使用して書き込み
+        with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Sheet1')
+
+            if hyperlink_column and hyperlink_column in df.columns:
+                workbook = writer.book
+                worksheet = writer.sheets['Sheet1']
+                hyperlink_col_idx = df.columns.get_loc(hyperlink_column) + 1  # 列インデックス (1-based)
+
+                for row_idx, cell_value in enumerate(df[hyperlink_column], start=2):  # データは2行目から
+                    if pd.notna(cell_value):  # 値がNaNでない場合のみ
+                        worksheet.cell(row=row_idx, column=hyperlink_col_idx).hyperlink = cell_value
+
+        print(f"エクセルファイルが作成されました: {excel_file}")
+    except Exception as e:
+        print(f"エラーが発生しました: {str(e)}")
             
 # ===========================
 # ====== プログラム本体 ======
@@ -293,22 +395,20 @@ if __name__ == "__main__":
         print(f"エラー: 'input' フォルダが見つかりません。スクリプトと同じディレクトリに 'input' フォルダを作成し、index_D.xmlファイルを配置してください。")
         exit(1)
 
-    # index_D.XMLを変換したCSVファイル属性情報
-    headers = [
-        '平均境界経度', '平均境界緯度',
-        '適用要領基準', '業務名称', '履行期間-着手', '履行期間-完了', '測地系',
-        '西側境界座標経度', '東側境界座標経度', '北側境界座標緯度', '南側境界座標緯度',
-        '発注者機関事務所名', '受注者名', '業務概要', 'BIMCIM対象', '業務キーワード', '施設名称' , '情報取得ファイル'
-    ]
-
     # report.XMLを変換したCSVファイルの保存先を作成
     report_csv_file_path = os.path.join(current_dir, "MLITreportxml.csv")
-    report_csvfile, report_csvwriter = open_csv_file(report_csv_file_path)
+    sample_index_d_path = find_index_d_xml(input_folder)
+    dynamic_headers = extract_headers_from_xml(sample_index_d_path) if sample_index_d_path else []
+    report_csvfile, report_csvwriter = open_csv_file(report_csv_file_path, ['業務名', '報告書名', '報告書副題', '報告書ファイル名', '報告書ファイル日本語名', '情報取得ファイル'])
 
     # index_D.XMLを変換したCSVファイルの書き込み
     with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(headers)
+        
+        # ヘッダーを動的に抽出して1回だけ書き込む
+        if sample_index_d_path:
+            writer.writerow(dynamic_headers)
+
         process_folders(input_folder, writer, report_csvwriter)
          
     # report.XMLを変換したCSVファイルの保存先を保存
@@ -319,10 +419,16 @@ if __name__ == "__main__":
     output_gpkg = os.path.join(current_dir, "MLITxml.gpkg")
     csv_to_geopackage(input_csv, output_gpkg)
 
-    print(f"処理が完了しました。結果は\n '{output_csv}' \n '{report_csv_file_path}' \nに保存されました。")
-    
+    # === エクセルファイルの作成 ===
+    output_excel = os.path.splitext(output_csv)[0] + ".xlsx"
+    report_excel_file_path = os.path.splitext(report_csv_file_path)[0] + ".xlsx"
+    csv_to_excel(output_csv, output_excel)
+    csv_to_excel(report_csv_file_path, report_excel_file_path, hyperlink_column='情報取得ファイル')
+
+    print(f"処理が完了しました。結果は\n '{output_csv}' \n '{report_csv_file_path}' \n '{output_excel}' \n '{report_excel_file_path}' \nに保存されました。")
+
     root = tk.Tk()
     root.withdraw()  # メインウィンドウを非表示にする
-    messagebox.showerror("報告", f"結果は\n '{output_csv}' \n '{report_csv_file_path}' \nに保存されました。")
+    messagebox.showinfo("報告", f"結果は\n '{output_csv}' \n '{report_csv_file_path}' \n '{output_excel}' \n '{report_excel_file_path}' \nに保存されました。")
     root.destroy()  # Tkinterのインスタンスを破棄
 
