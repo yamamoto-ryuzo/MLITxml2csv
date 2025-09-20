@@ -1,3 +1,4 @@
+# 開発をQGISのプラグイン　https://github.com/yamamoto-ryuzo/qgis-data-catalog-integration　　移行
 # 電子納品のindex_D.XML/report.XMLを一括してGISで読み込めるCSV・GPKGに変換
 　[EXEファイルはこちらから！](https://1drv.ms/u/c/cbbfeab49e70546f/EcCcbqPmGMFPoHImRo6OdOUBNQ-5q9FJyIgwBe0IdRDdlw?e=KCtFZT)  
 ### MLITxml2csv.exe　があれば動きます！  
